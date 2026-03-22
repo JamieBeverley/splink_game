@@ -15,6 +15,14 @@
 .game-header {
   text-align: center;
   padding-top: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+
+  svg {
+    color: var(--accent);
+  }
 }
 
 .game-title {
@@ -22,7 +30,7 @@
   font-weight: 800;
   letter-spacing: 0.18em;
   color: var(--text-h);
-  margin: 0 0 6px;
+  margin: 0 0 4px;
 }
 
 .game-subtitle {

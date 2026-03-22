@@ -2,6 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import './App.css'
 import { ALL_PUZZLES, type Puzzle } from './puzzles'
 
+function SpLinkIcon({ size = 48 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="0" y="19" width="16" height="10" rx="5" fill="currentColor" opacity="0.45"/>
+      <rect x="32" y="19" width="16" height="10" rx="5" fill="currentColor" opacity="0.45"/>
+      <polygon points="24,12 33,24 24,36 15,24" fill="currentColor"/>
+    </svg>
+  )
+}
+
 const PUZZLES_PER_GAME = 5
 const MAX_GUESSES = 3
 
@@ -118,7 +128,8 @@ export default function App() {
     return (
       <div className="game">
         <header className="game-header">
-          <h1 className="game-title">COMPOUND</h1>
+          <SpLinkIcon size={44} />
+          <h1 className="game-title">SPLINK</h1>
         </header>
         <div className="done-screen">
           <div className="done-grade">{grade}</div>
@@ -162,8 +173,9 @@ export default function App() {
   return (
     <div className="game">
       <header className="game-header">
-        <h1 className="game-title">COMPOUND</h1>
-        <p className="game-subtitle">Find the word that bridges both compound words</p>
+        <SpLinkIcon size={44} />
+        <h1 className="game-title">SPLINK</h1>
+        <p className="game-subtitle">Find the word that links both compound words together</p>
       </header>
 
       <div className="progress-bar">
