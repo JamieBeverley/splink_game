@@ -301,6 +301,42 @@
   opacity: 0.5;
 }
 
+/* ── Loading / error ────────────────────────────────────────────────────────── */
+
+.status-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-msg {
+  font-weight: 600;
+  color: #ef4444;
+}
+
+.error-detail {
+  font-size: 13px;
+  opacity: 0.6;
+  max-width: 320px;
+  text-align: center;
+}
+
 /* ── Done screen ────────────────────────────────────────────────────────────── */
 
 .done-screen {
@@ -389,6 +425,30 @@
 .dot-correct { background: #22c55e; }
 .dot-miss    { background: var(--text); opacity: 0.3; }
 .dot-empty   { border: 2px solid var(--border); box-sizing: border-box; }
+
+.next-puzzle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.next-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  opacity: 0.6;
+}
+
+.countdown {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+  letter-spacing: 0.04em;
+}
 
 .play-again {
   margin-top: 8px;

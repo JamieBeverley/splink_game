@@ -4,9 +4,10 @@ export interface Puzzle {
   answer: string
 }
 
+// Hand-curated puzzles.
 // WORD1 + answer = compound word  |  answer + WORD2 = compound word
 // e.g. FIRE + WORK + SHOP → FIREWORK · WORKSHOP
-export const ALL_PUZZLES: Puzzle[] = [
+const HAND_PUZZLES: Puzzle[] = [
   { word1: 'FIRE', word2: 'SHOP', answer: 'WORK' },        // FIREWORK · WORKSHOP
   { word1: 'EYE', word2: 'PARK', answer: 'BALL' },         // EYEBALL · BALLPARK
   { word1: 'HAND', word2: 'DOWN', answer: 'SHAKE' },       // HANDSHAKE · SHAKEDOWN
@@ -53,4 +54,14 @@ export const ALL_PUZZLES: Puzzle[] = [
   { word1: 'OVER', word2: 'GOWN', answer: 'NIGHT' },       // OVERNIGHT · NIGHTGOWN
   { word1: 'DAY', word2: 'DOWN', answer: 'BREAK' },        // DAYBREAK · BREAKDOWN
   { word1: 'UNDER', word2: 'WORK', answer: 'GROUND' },     // UNDERGROUND · GROUNDWORK
+  { word1: 'EYE', word2: 'BEAT', answer: 'BROW' },         // EYEBROW · BROWBEAT
+  { word1: 'SUN', word2: 'OUT', answer: 'BURN' },          // SUNBURN · BURNOUT
+  { word1: 'PLAY', word2: 'WORK', answer: 'GROUND' },      // PLAYGROUND · GROUNDWORK
+  { word1: 'NECK', word2: 'WORK', answer: 'LACE' },        // NECKLACE · LACEWORK
+  { word1: 'FLASH', word2: 'PACK', answer: 'BACK' },       // FLASHBACK · BACKPACK
 ]
+
+// Auto-generated puzzles (run `cd backend && python generate_puzzles.py` to populate).
+import { GENERATED_PUZZLES } from './puzzles_generated'
+
+export const ALL_PUZZLES: Puzzle[] = [...HAND_PUZZLES, ...GENERATED_PUZZLES]

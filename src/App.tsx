@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './App.css'
-import { ALL_PUZZLES, type Puzzle } from './puzzles'
+import type { Puzzle } from './puzzles'
+import {
+  utcDateString,
+  msUntilMidnightUTC,
+  fetchPuzzles,
+  loadProgress,
+  saveProgress,
+} from './daily'
 
 function SpLinkIcon({ size = 48 }: { size?: number }) {
   return (
@@ -12,17 +19,20 @@ function SpLinkIcon({ size = 48 }: { size?: number }) {
   )
 }
 
+function useCountdown() {
+  const [ms, setMs] = useState(msUntilMidnightUTC)
+  useEffect(() => {
+    const id = setInterval(() => setMs(msUntilMidnightUTC()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const h = Math.floor(ms / 3_600_000)
+  const m = Math.floor((ms % 3_600_000) / 60_000)
+  const s = Math.floor((ms % 60_000) / 1_000)
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
 const PUZZLES_PER_GAME = 5
 const MAX_GUESSES = 3
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
 
 interface PuzzleResult {
   puzzle: Puzzle
@@ -30,42 +40,92 @@ interface PuzzleResult {
   solved: boolean
 }
 
-type Phase = 'playing' | 'reveal' | 'done'
+type Phase = 'loading' | 'error' | 'playing' | 'reveal' | 'done'
 
 export default function App() {
-  const [puzzles, setPuzzles] = useState<Puzzle[]>([])
-  const [results, setResults] = useState<PuzzleResult[]>([])
+  const [date, setDate]         = useState('')
+  const [puzzles, setPuzzles]   = useState<Puzzle[]>([])
+  const [results, setResults]   = useState<PuzzleResult[]>([])
   const [currentIdx, setCurrentIdx] = useState(0)
-  const [input, setInput] = useState('')
-  const [phase, setPhase] = useState<Phase>('playing')
-  const [flash, setFlash] = useState<'correct' | 'wrong' | null>(null)
-  const [shaking, setShaking] = useState(false)
+  const [input, setInput]       = useState('')
+  const [phase, setPhase]       = useState<Phase>('loading')
+  const [errorMsg, setErrorMsg] = useState('')
+  const [flash, setFlash]       = useState<'correct' | 'wrong' | null>(null)
+  const [shaking, setShaking]   = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const countdown = useCountdown()
 
-  const initGame = useCallback(() => {
-    const selected = shuffle(ALL_PUZZLES).slice(0, PUZZLES_PER_GAME)
-    setPuzzles(selected)
-    setResults(selected.map(p => ({ puzzle: p, guesses: [], solved: false })))
-    setCurrentIdx(0)
-    setInput('')
-    setPhase('playing')
-    setFlash(null)
+  // ── Load today's puzzle ─────────────────────────────────────────────────────
+
+  const loadDaily = useCallback(async () => {
+    setPhase('loading')
+    setErrorMsg('')
+    const today = utcDateString()
+    setDate(today)
+    try {
+      const fetched = await fetchPuzzles(today)
+      const saved   = loadProgress(today)
+
+      setPuzzles(fetched)
+      setInput('')
+      setFlash(null)
+
+      if (saved?.completed) {
+        setResults(fetched.map((p, i) => ({
+          puzzle:  p,
+          guesses: saved.results[i]?.guesses ?? [],
+          solved:  saved.results[i]?.solved  ?? false,
+        })))
+        setCurrentIdx(PUZZLES_PER_GAME - 1)
+        setPhase('done')
+      } else if (saved) {
+        setResults(fetched.map((p, i) => ({
+          puzzle:  p,
+          guesses: saved.results[i]?.guesses ?? [],
+          solved:  saved.results[i]?.solved  ?? false,
+        })))
+        setCurrentIdx(saved.currentIdx)
+        setPhase('playing')
+      } else {
+        setResults(fetched.map(p => ({ puzzle: p, guesses: [], solved: false })))
+        setCurrentIdx(0)
+        setPhase('playing')
+      }
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Unknown error')
+      setPhase('error')
+    }
   }, [])
 
-  useEffect(() => { initGame() }, [initGame])
+  useEffect(() => { loadDaily() }, [loadDaily])
+
+  // ── Persist progress ────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!date || phase === 'loading' || phase === 'error' || results.length === 0) return
+    saveProgress({
+      date,
+      currentIdx,
+      results: results.map(r => ({ guesses: r.guesses, solved: r.solved })),
+      completed: phase === 'done',
+    })
+  }, [date, currentIdx, results, phase])
+
+  // ── Focus input ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (phase === 'playing') inputRef.current?.focus()
   }, [phase, currentIdx])
 
-  const current = puzzles[currentIdx]
-  const currentResult = results[currentIdx]
+  // ── Derived state ───────────────────────────────────────────────────────────
 
-  const totalScore = results.reduce((sum, r) => {
-    if (!r.solved) return sum
-    return sum + (MAX_GUESSES + 1 - r.guesses.length)
-  }, 0)
+  const current       = puzzles[currentIdx]
+  const currentResult = results[currentIdx]
+  const totalScore    = results.reduce((sum, r) =>
+    r.solved ? sum + (MAX_GUESSES + 1 - r.guesses.length) : sum, 0)
   const maxScore = PUZZLES_PER_GAME * MAX_GUESSES
+
+  // ── Game logic ──────────────────────────────────────────────────────────────
 
   const advance = useCallback(() => {
     const next = currentIdx + 1
@@ -83,17 +143,13 @@ export default function App() {
     const guess = input.trim().toUpperCase()
     if (!guess) return
 
-    const isCorrect = guess === current.answer
-    const newGuesses = [...currentResult.guesses, guess]
+    const isCorrect    = guess === current.answer
+    const newGuesses   = [...currentResult.guesses, guess]
     const outOfGuesses = !isCorrect && newGuesses.length >= MAX_GUESSES
 
-    setResults(prev =>
-      prev.map((r, i) =>
-        i === currentIdx
-          ? { ...r, guesses: newGuesses, solved: isCorrect }
-          : r
-      )
-    )
+    setResults(prev => prev.map((r, i) =>
+      i === currentIdx ? { ...r, guesses: newGuesses, solved: isCorrect } : r
+    ))
     setInput('')
 
     if (isCorrect) {
@@ -114,15 +170,50 @@ export default function App() {
     if (e.key === 'Enter') submitGuess()
   }
 
+  // ── Loading screen ──────────────────────────────────────────────────────────
+
+  if (phase === 'loading') {
+    return (
+      <div className="game">
+        <header className="game-header">
+          <SpLinkIcon size={44} />
+          <h1 className="game-title">SPLINK</h1>
+        </header>
+        <div className="status-screen">
+          <div className="spinner" />
+          <p>Loading today's puzzle…</p>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Error screen ────────────────────────────────────────────────────────────
+
+  if (phase === 'error') {
+    return (
+      <div className="game">
+        <header className="game-header">
+          <SpLinkIcon size={44} />
+          <h1 className="game-title">SPLINK</h1>
+        </header>
+        <div className="status-screen">
+          <p className="error-msg">Failed to load today's puzzle</p>
+          <p className="error-detail">{errorMsg}</p>
+          <button className="play-again" onClick={loadDaily}>Try again</button>
+        </div>
+      </div>
+    )
+  }
+
   if (!current || !currentResult) return null
 
-  // ── Done screen ──────────────────────────────────────────────────────────────
+  // ── Done screen ─────────────────────────────────────────────────────────────
 
   if (phase === 'done') {
     const grade =
       totalScore >= 13 ? 'Excellent!' :
-      totalScore >= 10 ? 'Great job' :
-      totalScore >= 7  ? 'Not bad' :
+      totalScore >= 10 ? 'Great job'  :
+      totalScore >= 7  ? 'Not bad'    :
       totalScore >= 4  ? 'Keep at it' : 'Better luck next time'
 
     return (
@@ -150,23 +241,26 @@ export default function App() {
                   {Array.from({ length: MAX_GUESSES }).map((_, gi) => {
                     const isLastGuess = gi === r.guesses.length - 1
                     if (r.solved && isLastGuess) return <span key={gi} className="dot dot-correct" />
-                    if (gi < r.guesses.length) return <span key={gi} className="dot dot-miss" />
+                    if (gi < r.guesses.length)   return <span key={gi} className="dot dot-miss" />
                     return <span key={gi} className="dot dot-empty" />
                   })}
                 </span>
               </div>
             ))}
           </div>
-          <button className="play-again" onClick={initGame}>Play Again</button>
+          <div className="next-puzzle">
+            <span className="next-label">Next puzzle in</span>
+            <span className="countdown">{countdown}</span>
+          </div>
         </div>
       </div>
     )
   }
 
-  // ── Playing / Reveal screen ──────────────────────────────────────────────────
+  // ── Playing / Reveal screen ─────────────────────────────────────────────────
 
-  const guesses = currentResult.guesses
-  const solved = currentResult.solved
+  const guesses  = currentResult.guesses
+  const solved   = currentResult.solved
   const revealed = phase === 'reveal'
   const showHint = phase === 'playing' && guesses.length >= MAX_GUESSES - 1
 
@@ -187,25 +281,17 @@ export default function App() {
         ))}
       </div>
 
-      <div
-        className={`puzzle-area ${
-          flash === 'correct' ? 'flash-correct' : flash === 'wrong' ? 'flash-wrong' : ''
-        }`}
-      >
+      <div className={`puzzle-area ${flash === 'correct' ? 'flash-correct' : flash === 'wrong' ? 'flash-wrong' : ''}`}>
         <div className="puzzle-display">
           <span className="clue-word">{current.word1}</span>
           <span className="connector">+</span>
-
           {revealed ? (
             <span className={`answer-reveal ${solved ? 'answer-correct' : 'answer-wrong'}`}>
               {current.answer}
             </span>
           ) : (
-            <span className="blank-word">
-              {'_'.repeat(current.answer.length)}
-            </span>
+            <span className="blank-word">{'_'.repeat(current.answer.length)}</span>
           )}
-
           <span className="connector">+</span>
           <span className="clue-word">{current.word2}</span>
         </div>
@@ -221,10 +307,7 @@ export default function App() {
           {guesses.map((g, i) => {
             const isCorrectGuess = solved && i === guesses.length - 1
             return (
-              <div
-                key={i}
-                className={`guess-chip ${isCorrectGuess ? 'chip-correct' : 'chip-wrong'}`}
-              >
+              <div key={i} className={`guess-chip ${isCorrectGuess ? 'chip-correct' : 'chip-wrong'}`}>
                 {g}
               </div>
             )
@@ -245,11 +328,7 @@ export default function App() {
               autoCapitalize="none"
               spellCheck={false}
             />
-            <button
-              className="submit-btn"
-              onClick={submitGuess}
-              disabled={!input.trim()}
-            >
+            <button className="submit-btn" onClick={submitGuess} disabled={!input.trim()}>
               →
             </button>
           </div>
@@ -257,10 +336,7 @@ export default function App() {
 
         <div className="attempts-row">
           {Array.from({ length: MAX_GUESSES }).map((_, i) => (
-            <span
-              key={i}
-              className={`attempt-dot ${i < guesses.length ? 'dot-used' : ''}`}
-            />
+            <span key={i} className={`attempt-dot ${i < guesses.length ? 'dot-used' : ''}`} />
           ))}
         </div>
       </div>
