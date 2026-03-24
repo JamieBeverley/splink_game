@@ -1,0 +1,7 @@
+{
+  "app": "uv run python app.py",
+  "context": {
+    "@aws-cdk/aws-s3:keepNotificationInImportedBucket": false,
+    "@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021": true
+  }
+}
