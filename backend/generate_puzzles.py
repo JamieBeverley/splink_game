@@ -298,15 +298,19 @@ def assign_dates(
     n = len(pool)
 
     schedule: dict[datetime.date, list[dict]] = {}
+    cursor = 0
     for i in range(days):
         date = start + datetime.timedelta(days=i)
-        day = (date - EPOCH).days
-        start_idx = (day * PUZZLES_PER_DAY) % n
-        end_idx = start_idx + PUZZLES_PER_DAY
-        if end_idx <= n:
-            day_puzzles = pool[start_idx:end_idx]
-        else:
-            day_puzzles = pool[start_idx:] + pool[: end_idx - n]
+        day_puzzles: list[dict] = []
+        used_answers: set[str] = set()
+        checked = 0
+        while len(day_puzzles) < PUZZLES_PER_DAY and checked < n:
+            p = pool[(cursor + checked) % n]
+            checked += 1
+            if p["answer"] not in used_answers:
+                day_puzzles.append(p)
+                used_answers.add(p["answer"])
+        cursor = (cursor + checked) % n
         schedule[date] = day_puzzles
 
     return schedule
