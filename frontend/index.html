@@ -5,6 +5,63 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SPLINK</title>
+    <script>
+        class Client {
+
+          getId() {
+            var id = localStorage.getItem('id');
+            if (id) {
+              this.id = id;
+            } else {
+              this.id = `${crypto.randomUUID()}-${new Date().getTime()}`;
+              localStorage.setItem('id', this.id);
+            }
+            return this.id;
+          }
+
+          createBody(type) {
+            return JSON.stringify({
+              clientId: this.getId(),
+              type,
+              location: window.location.href,
+              userAgent: navigator.userAgent,
+              referrer: document.referrer,
+            });
+          }
+
+          async depart() {
+            var body = this.createBody('depart');
+            const response = await this.send(body);
+            const json = await response.json();
+          }
+
+          visit() {
+            var body = this.createBody('visit');
+            this.send(body);
+          }
+
+          send(body) {
+            return navigator.sendBeacon(
+              "https://s152mvgwm8.execute-api.us-east-2.amazonaws.com/visits",
+              body,
+            );
+          }
+
+          init() {
+            this.visit();
+            window.addEventListener('visibilitychange', (e) => {
+              if (document.visibilityState === 'hidden') {
+                this.depart();
+              } else {
+                this.visit();
+              }
+            });
+          }
+        }
+
+        const client = new Client();
+        client.init();
+    </script>
   </head>
   <body>
     <div id="root"></div>
