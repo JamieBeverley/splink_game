@@ -17,16 +17,10 @@ class SplinkStack(Stack):
         # ── S3 bucket ─────────────────────────────────────────────────────────
         # Private — CloudFront is the only entry point.
         bucket = s3.Bucket(
-            self, "PuzzlesBucket",
+            self,
+            "PuzzlesBucket",
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
-            removal_policy=RemovalPolicy.RETAIN,   # keep puzzle files on stack destroy
-            lifecycle_rules=[
-                s3.LifecycleRule(
-                    # Expire puzzle files older than 2 years to keep the bucket tidy
-                    prefix="puzzles/",
-                    expiration=Duration.days(730),
-                )
-            ],
+            removal_policy=RemovalPolicy.RETAIN,  # keep puzzle files on stack destroy
         )
 
         # ── CloudFront OAC ────────────────────────────────────────────────────
@@ -35,7 +29,8 @@ class SplinkStack(Stack):
 
         # ── CORS response headers policy ──────────────────────────────────────
         cors_policy = cloudfront.ResponseHeadersPolicy(
-            self, "CorsPolicy",
+            self,
+            "CorsPolicy",
             response_headers_policy_name=f"{id}-cors",
             cors_behavior=cloudfront.ResponseHeadersCorsBehavior(
                 access_control_allow_credentials=False,
@@ -48,7 +43,8 @@ class SplinkStack(Stack):
 
         # ── CloudFront distribution ───────────────────────────────────────────
         distribution = cloudfront.Distribution(
-            self, "Distribution",
+            self,
+            "Distribution",
             default_behavior=cloudfront.BehaviorOptions(
                 origin=origins.S3BucketOrigin.with_origin_access_control(
                     bucket,
@@ -62,10 +58,16 @@ class SplinkStack(Stack):
         )
 
         # ── Outputs ───────────────────────────────────────────────────────────
-        CfnOutput(self, "BucketName",
-                  value=bucket.bucket_name,
-                  description="Set as SPLINK_BUCKET when running generate_puzzles.py")
+        CfnOutput(
+            self,
+            "BucketName",
+            value=bucket.bucket_name,
+            description="Set as SPLINK_BUCKET when running generate_puzzles.py",
+        )
 
-        CfnOutput(self, "PuzzlesUrl",
-                  value=f"https://{distribution.distribution_domain_name}",
-                  description="Set as VITE_PUZZLES_URL in .env.local")
+        CfnOutput(
+            self,
+            "PuzzlesUrl",
+            value=f"https://{distribution.distribution_domain_name}",
+            description="Set as VITE_PUZZLES_URL in .env.local",
+        )

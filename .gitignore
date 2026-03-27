@@ -23,5 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
-# Backend cache (downloaded word lists, generated JSON)
+# Backend cache (downloaded word lists) and generated daily puzzle files
 backend/.cache/
+backend/pool/
