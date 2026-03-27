@@ -32,6 +32,8 @@ jobs:
         run: yarn install --immutable
 
       - name: Build
+        env:
+          VITE_PUZZLES_URL: https://d16jya7cthaf07.cloudfront.net/
         run: yarn build
 
       - name: Upload Pages artifact
