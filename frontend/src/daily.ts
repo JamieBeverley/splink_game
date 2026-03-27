@@ -4,22 +4,22 @@ const BASE_URL = (import.meta.env.VITE_PUZZLES_URL as string | undefined)?.repla
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
-export function utcDateString(d = new Date()): string {
+export function localDateString(d = new Date()): string {
   return [
-    d.getUTCFullYear(),
-    String(d.getUTCMonth() + 1).padStart(2, '0'),
-    String(d.getUTCDate()).padStart(2, '0'),
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
   ].join('-')
 }
 
-export function msUntilMidnightUTC(): number {
+export function msUntilMidnightLocal(): number {
   const now = new Date()
-  const tomorrow = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate() + 1,
+  const tomorrow = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1,
   )
-  return tomorrow - now.getTime()
+  return tomorrow.getTime() - now.getTime()
 }
 
 // ── Puzzle fetch ──────────────────────────────────────────────────────────────

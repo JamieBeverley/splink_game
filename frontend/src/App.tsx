@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import './App.css'
 import type { Puzzle } from './puzzles'
 import {
-  utcDateString,
-  msUntilMidnightUTC,
+  localDateString,
+  msUntilMidnightLocal,
   fetchPuzzles,
   loadProgress,
   saveProgress,
@@ -20,9 +20,9 @@ function SpLinkIcon({ size = 48 }: { size?: number }) {
 }
 
 function useCountdown() {
-  const [ms, setMs] = useState(msUntilMidnightUTC)
+  const [ms, setMs] = useState(msUntilMidnightLocal)
   useEffect(() => {
-    const id = setInterval(() => setMs(msUntilMidnightUTC()), 1000)
+    const id = setInterval(() => setMs(msUntilMidnightLocal()), 1000)
     return () => clearInterval(id)
   }, [])
   const h = Math.floor(ms / 3_600_000)
@@ -31,7 +31,7 @@ function useCountdown() {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-const PUZZLES_PER_GAME = 5
+const PUZZLES_PER_GAME = 4
 const MAX_GUESSES = 3
 
 interface PuzzleResult {
@@ -60,7 +60,7 @@ export default function App() {
   const loadDaily = useCallback(async () => {
     setPhase('loading')
     setErrorMsg('')
-    const today = utcDateString()
+    const today = localDateString()
     setDate(today)
     try {
       const fetched = await fetchPuzzles(today)
@@ -76,7 +76,7 @@ export default function App() {
           guesses: saved.results[i]?.guesses ?? [],
           solved:  saved.results[i]?.solved  ?? false,
         })))
-        setCurrentIdx(PUZZLES_PER_GAME - 1)
+        setCurrentIdx(fetched.length - 1)
         setPhase('done')
       } else if (saved) {
         setResults(fetched.map((p, i) => ({
@@ -129,14 +129,14 @@ export default function App() {
 
   const advance = useCallback(() => {
     const next = currentIdx + 1
-    if (next >= PUZZLES_PER_GAME) {
+    if (next >= puzzles.length) {
       setPhase('done')
     } else {
       setCurrentIdx(next)
       setInput('')
       setPhase('playing')
     }
-  }, [currentIdx])
+  }, [currentIdx, puzzles.length])
 
   const submitGuess = useCallback(() => {
     if (phase !== 'playing' || !current || !currentResult) return
