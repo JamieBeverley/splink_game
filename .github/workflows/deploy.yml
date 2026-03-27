@@ -29,9 +29,11 @@ jobs:
         run: corepack enable
 
       - name: Install dependencies
+        working-directory: frontend
         run: yarn install --immutable
 
       - name: Build
+        working-directory: frontend
         env:
           VITE_PUZZLES_URL: https://d16jya7cthaf07.cloudfront.net/
         run: yarn build
@@ -39,7 +41,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: frontend/dist
 
   deploy:
     needs: build
