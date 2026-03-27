@@ -79,7 +79,7 @@ MAX_PART_LEN = 10  # maximum chars in word1, answer, word2
 MAX_COMPOUND_LEN = 18  # maximum total compound word length
 MIN_FREQ: float = 4e-6  # wordfreq threshold (~top 30-40k English words)
 
-PUZZLES_PER_DAY = 5
+PUZZLES_PER_DAY = 4
 EPOCH = datetime.date(2026, 3, 24)  # day 0 of the puzzle calendar
 SHUFFLE_SEED = 42
 
@@ -198,8 +198,8 @@ def generate(
     by_right: dict[str, list[tuple[str, str]]],
     by_left: dict[str, list[tuple[str, str]]],
 ) -> list[dict]:
-    puzzles: list[dict] = []
-    seen: set[tuple[str, str, str]] = set()
+    # keyed by (word1, word2) — each pair may have multiple valid answers
+    puzzle_map: dict[tuple[str, str], dict] = {}
     answers = set(by_right) & set(by_left)
     total = len(answers)
     print(f"{total:,} candidate answer words")
@@ -219,20 +219,31 @@ def generate(
                     continue
                 if not is_common(word2) or not is_common(compound2):
                     continue
-                key = (word1, word2, answer)
-                if key in seen:
-                    continue
-                seen.add(key)
-                puzzles.append(
-                    {
-                        "word1": word1.upper(),
-                        "word2": word2.upper(),
-                        "answer": answer.upper(),
-                        "_c1": compound1.upper(),
-                        "_c2": compound2.upper(),
+                key = (word1.upper(), word2.upper())
+                if key not in puzzle_map:
+                    puzzle_map[key] = {
+                        "word1": key[0],
+                        "word2": key[1],
+                        "answers": [],
+                        "_compounds": [],
                     }
+                puzzle_map[key]["answers"].append(answer.upper())
+                puzzle_map[key]["_compounds"].append(
+                    [compound1.upper(), compound2.upper()]
                 )
 
+    # Keep only answers matching the length of the first answer (mixed lengths leak the solution)
+    for puzzle in puzzle_map.values():
+        target_len = len(puzzle["answers"][0])
+        pairs = [
+            (a, c)
+            for a, c in zip(puzzle["answers"], puzzle["_compounds"])
+            if len(a) == target_len
+        ]
+        puzzle["answers"] = [a for a, _ in pairs]
+        puzzle["_compounds"] = [c for _, c in pairs]
+
+    puzzles = list(puzzle_map.values())
     print(f"\nGenerated {len(puzzles):,} puzzles")
     return puzzles
 
@@ -253,7 +264,7 @@ def review_puzzles(puzzles: list[dict]) -> None:
         reviewed_answers.update(json.loads(REVIEWED_FILE.read_text(encoding="utf-8")))
 
     # Deduplicate answers, preserving insertion order
-    all_answers = list(dict.fromkeys(p["answer"] for p in puzzles))
+    all_answers = list(dict.fromkeys(a for p in puzzles for a in p["answers"]))
     pending = [a for a in all_answers if a not in reviewed_answers]
 
     print(
@@ -307,9 +318,9 @@ def assign_dates(
         while len(day_puzzles) < PUZZLES_PER_DAY and checked < n:
             p = pool[(cursor + checked) % n]
             checked += 1
-            if p["answer"] not in used_answers:
+            if not used_answers.intersection(p["answers"]):
                 day_puzzles.append(p)
-                used_answers.add(p["answer"])
+                used_answers.update(p["answers"])
         cursor = (cursor + checked) % n
         schedule[date] = day_puzzles
 
@@ -324,7 +335,7 @@ def clean(puzzle: dict) -> dict:
     return {
         "word1": puzzle["word1"],
         "word2": puzzle["word2"],
-        "answer": puzzle["answer"],
+        "answers": puzzle["answers"],
     }
 
 
@@ -427,11 +438,53 @@ def main() -> None:
         review_puzzles(puzzles)
         return
 
+    # Always strip explicitly-rejected answers (reviewed but not approved)
+    if REVIEWED_FILE.exists():
+        reviewed = set(json.loads(REVIEWED_FILE.read_text(encoding="utf-8")))
+        approved = (
+            set(json.loads(APPROVED_FILE.read_text(encoding="utf-8")))
+            if APPROVED_FILE.exists()
+            else set()
+        )
+        rejected = reviewed - approved
+        if rejected:
+            cleaned = []
+            for p in puzzles:
+                pairs = [
+                    (a, c)
+                    for a, c in zip(p["answers"], p["_compounds"])
+                    if a not in rejected
+                ]
+                if pairs:
+                    cleaned.append(
+                        {
+                            **p,
+                            "answers": [a for a, _ in pairs],
+                            "_compounds": [c for _, c in pairs],
+                        }
+                    )
+            puzzles = cleaned
+
     if args.approved_only:
         if not APPROVED_FILE.exists():
             sys.exit("No approved answers found — run with --review first.")
         approved_answers = set(json.loads(APPROVED_FILE.read_text(encoding="utf-8")))
-        puzzles = [p for p in puzzles if p["answer"] in approved_answers]
+        filtered = []
+        for p in puzzles:
+            kept = [
+                (a, c)
+                for a, c in zip(p["answers"], p["_compounds"])
+                if a in approved_answers
+            ]
+            if kept:
+                filtered.append(
+                    {
+                        **p,
+                        "answers": [a for a, _ in kept],
+                        "_compounds": [c for _, c in kept],
+                    }
+                )
+        puzzles = filtered
         print(f"Filtered to {len(puzzles)} puzzles with approved answers")
 
     schedule = assign_dates(puzzles, start, args.days)
@@ -440,8 +493,10 @@ def main() -> None:
         for date, day_puzzles in sorted(schedule.items()):
             print(f"\n{date}  (day {(date - EPOCH).days})")
             for p in day_puzzles:
-                suffix = f"  — {p['_c1']} · {p['_c2']}" if "_c1" in p else ""
-                print(f"  {p['word1']} + {p['answer']} + {p['word2']}{suffix}")
+                for answer, (c1, c2) in zip(p["answers"], p.get("_compounds", [])):
+                    print(f"  {p['word1']} + {answer} + {p['word2']}  — {c1} · {c2}")
+                if not p.get("_compounds"):
+                    print(f"  {p['word1']} + {'/'.join(p['answers'])} + {p['word2']}")
         print("\n(dry run — nothing written)")
         return
 

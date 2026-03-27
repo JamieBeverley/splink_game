@@ -30,7 +30,7 @@ export async function fetchPuzzles(date: string): Promise<Puzzle[]> {
   const cached = localStorage.getItem(puzzleKey(date))
   if (cached) return JSON.parse(cached) as Puzzle[]
 
-  if (!BASE_URL) {
+  if (BASE_URL === undefined) {
     throw new Error('VITE_PUZZLES_URL is not configured. See .env.example.')
   }
 

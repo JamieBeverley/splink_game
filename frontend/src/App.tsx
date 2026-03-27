@@ -143,7 +143,7 @@ export default function App() {
     const guess = input.trim().toUpperCase()
     if (!guess) return
 
-    const isCorrect    = guess === current.answer
+    const isCorrect    = current.answers.includes(guess)
     const newGuesses   = [...currentResult.guesses, guess]
     const outOfGuesses = !isCorrect && newGuesses.length >= MAX_GUESSES
 
@@ -233,7 +233,7 @@ export default function App() {
                 <span className="done-compound">
                   {r.puzzle.word1}
                   <span className="done-sep">·</span>
-                  <span className="done-answer">{r.puzzle.answer}</span>
+                  <span className="done-answer">{r.puzzle.answers.join(' / ')}</span>
                   <span className="done-sep">·</span>
                   {r.puzzle.word2}
                 </span>
@@ -287,10 +287,10 @@ export default function App() {
           <span className="connector">+</span>
           {revealed ? (
             <span className={`answer-reveal ${solved ? 'answer-correct' : 'answer-wrong'}`}>
-              {current.answer}
+              {solved ? guesses[guesses.length - 1] : current.answers.join(' / ')}
             </span>
           ) : (
-            <span className="blank-word">{'_'.repeat(current.answer.length)}</span>
+            <span className="blank-word">{'_'.repeat(current.answers[0].length)}</span>
           )}
           <span className="connector">+</span>
           <span className="clue-word">{current.word2}</span>
@@ -298,8 +298,8 @@ export default function App() {
 
         {showHint && !revealed && (
           <div className="hint">
-            Hint: starts with <strong>{current.answer[0]}</strong>
-            {current.answer.length >= 5 && <>, {current.answer.length} letters</>}
+            Hint: starts with <strong>{current.answers[0][0]}</strong>
+            {current.answers[0].length >= 5 && <>, {current.answers[0].length} letters</>}
           </div>
         )}
 
