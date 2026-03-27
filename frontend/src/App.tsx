@@ -19,6 +19,17 @@ function SpLinkIcon({ size = 48 }: { size?: number }) {
   )
 }
 
+function GameHeader() {
+  return (
+    <header className="game-header">
+      <div className="header-center">
+        <SpLinkIcon size={32} />
+        <h1 className="game-title">SPLINK</h1>
+      </div>
+    </header>
+  )
+}
+
 function useCountdown() {
   const [ms, setMs] = useState(msUntilMidnightLocal)
   useEffect(() => {
@@ -52,6 +63,7 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState('')
   const [flash, setFlash]       = useState<'correct' | 'wrong' | null>(null)
   const [shaking, setShaking]   = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const countdown = useCountdown()
 
@@ -166,8 +178,10 @@ export default function App() {
     }
   }, [phase, current, currentResult, input, currentIdx, advance])
 
+  const answerLen = current?.answers[0].length ?? 0
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') submitGuess()
+    if (e.key === 'Enter' && input.trim().length === answerLen) submitGuess()
   }
 
   // ── Loading screen ──────────────────────────────────────────────────────────
@@ -175,10 +189,7 @@ export default function App() {
   if (phase === 'loading') {
     return (
       <div className="game">
-        <header className="game-header">
-          <SpLinkIcon size={44} />
-          <h1 className="game-title">SPLINK</h1>
-        </header>
+        <GameHeader />
         <div className="status-screen">
           <div className="spinner" />
           <p>Loading today's puzzle…</p>
@@ -192,10 +203,7 @@ export default function App() {
   if (phase === 'error') {
     return (
       <div className="game">
-        <header className="game-header">
-          <SpLinkIcon size={44} />
-          <h1 className="game-title">SPLINK</h1>
-        </header>
+        <GameHeader />
         <div className="status-screen">
           <p className="error-msg">Failed to load today's puzzle</p>
           <p className="error-detail">{errorMsg}</p>
@@ -211,17 +219,14 @@ export default function App() {
 
   if (phase === 'done') {
     const grade =
-      totalScore >= 13 ? 'Excellent!' :
-      totalScore >= 10 ? 'Great job'  :
-      totalScore >= 7  ? 'Not bad'    :
-      totalScore >= 4  ? 'Keep at it' : 'Better luck next time'
+      totalScore === maxScore ? 'Excellent!'        :
+      totalScore >= 10        ? 'Great job'         :
+      totalScore >= 7         ? 'Not bad'           :
+      totalScore >= 4         ? 'Keep at it'        : 'Better luck next time'
 
     return (
       <div className="game">
-        <header className="game-header">
-          <SpLinkIcon size={44} />
-          <h1 className="game-title">SPLINK</h1>
-        </header>
+        <GameHeader />
         <div className="done-screen">
           <div className="done-grade">{grade}</div>
           <div className="done-score">
@@ -252,6 +257,13 @@ export default function App() {
             <span className="next-label">Next puzzle in</span>
             <span className="countdown">{countdown}</span>
           </div>
+          <button className="play-again" onClick={() => {
+            setResults(puzzles.map(p => ({ puzzle: p, guesses: [], solved: false })))
+            setCurrentIdx(0)
+            setInput('')
+            setFlash(null)
+            setPhase('playing')
+          }}>Play again</button>
         </div>
       </div>
     )
@@ -266,11 +278,28 @@ export default function App() {
 
   return (
     <div className="game">
-      <header className="game-header">
-        <SpLinkIcon size={44} />
-        <h1 className="game-title">SPLINK</h1>
-        <p className="game-subtitle">Find the word that links both compound words together</p>
-      </header>
+      <GameHeader />
+
+      {showHelp && (
+        <div className="modal-backdrop" onClick={() => setShowHelp(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowHelp(false)}>✕</button>
+            <h2>How to play</h2>
+            <p>Find the word that completes both compound words:</p>
+            <p className="modal-example">CAMP + <strong>?</strong> + WORKS<br/>→ CAMP<strong>FIRE</strong> · <strong>FIRE</strong>WORKS</p>
+            <h3>Scoring</h3>
+            <table className="modal-score-table">
+              <tbody>
+                <tr><td>Solve on 1st guess</td><td><strong>3 pts</strong></td></tr>
+                <tr><td>Solve on 2nd guess</td><td><strong>2 pts</strong></td></tr>
+                <tr><td>Solve on 3rd guess</td><td><strong>1 pt</strong></td></tr>
+                <tr><td>Miss all guesses</td><td><strong>0 pts</strong></td></tr>
+              </tbody>
+            </table>
+            <p className="modal-max">Max score: {maxScore} ({PUZZLES_PER_GAME} puzzles × {MAX_GUESSES} pts)</p>
+          </div>
+        </div>
+      )}
 
       <div className="progress-bar">
         {Array.from({ length: PUZZLES_PER_GAME }).map((_, i) => (
@@ -323,12 +352,12 @@ export default function App() {
               onChange={e => setInput(e.target.value.replace(/[^a-zA-Z]/g, ''))}
               onKeyDown={handleKeyDown}
               placeholder="type your answer…"
-              maxLength={20}
+              maxLength={answerLen}
               autoComplete="off"
               autoCapitalize="none"
               spellCheck={false}
             />
-            <button className="submit-btn" onClick={submitGuess} disabled={!input.trim()}>
+            <button className="submit-btn" onClick={submitGuess} disabled={input.trim().length !== answerLen}>
               →
             </button>
           </div>
@@ -346,6 +375,7 @@ export default function App() {
         <span className="score-max"> / {maxScore}</span>
         <span className="puzzle-counter"> · {currentIdx + 1} of {PUZZLES_PER_GAME}</span>
       </div>
+      <button className="how-to-play-link" onClick={() => setShowHelp(true)}>how to play?</button>
     </div>
   )
 }
