@@ -27,6 +27,14 @@ export function msUntilMidnightLocal(): number {
 const puzzleKey = (date: string) => `splink:puzzle:${date}`
 
 export async function fetchPuzzles(date: string): Promise<Puzzle[]> {
+  if(date=="2026-03-31"){
+     return [
+       { word1: 'SUN', word2: 'OUT', answers: ['BURN'] },          // SUNBURN · BURNOUT
+       { word1: 'PLAY', word2: 'WORK', answers: ['GROUND'] },      // PLAYGROUND · GROUNDWORK
+       { word1: 'FLASH', word2: 'PACK', answers: ['BACK'] },       // FLASHBACK · BACKPACK
+       { word1: 'GATE', word2: 'SIDE', answers: ['WAY'] },         // GATEWAY · WAYSIDE
+     ]
+  }
   const cached = localStorage.getItem(puzzleKey(date))
   if (cached) return JSON.parse(cached) as Puzzle[]
 
